@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+#
+# Usage: jenv vars
+#
+# Prints all jenv-vars environment variables applicable to the
+# current working directory in the order they will be set. The output
+# format is a script that may be passed to `eval` in a Bourne-
+# compatible shell.
+#
+# For more information on jenv-vars, see:
+# https://github.com/sstephenson/jenv-vars#readme
+
+set -e
+[ -n "$jenv_DEBUG" ] && set -x
+
+if [ -z "$jenv_DIR" ]; then
+	export jenv_DIR="$(pwd)"
+fi
+
+if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then
+	echo "jenv-archetype 1.2.0"
+	exit
+fi
+
+if [ "$1" == '--list' -o "$1" == '-l' ]; then
+	package=br.eng.ivanlopes
+
+	xmlfile=~/.m2/archetype-catalog.xml
+
+	N=$(xmlstarlet sel -t -v 'count(//archetype)' <(sed -e '2,4d' -e '1a<archetype-catalog>' $xmlfile))
+
+	cat <<EOF | sed 's/^ *//' | dmenu -i -l 52 -fn 'Droid Sans Mono-26' -nf green -nb black -sf black -sb white
+    $(for i in $(seq $N); do
+
+		p=/archetype-catalog/archetypes/archetype[$i]/artifactId
+		a_artifact_id=$(
+			xmlstarlet sel -t -v "$p" <(sed -e '2,4d' -e '1a<archetype-catalog>' $xmlfile)
+		)
+
+		echo $a_artifact_id
+	done)
+EOF
+
+	exit 1
+fi
+
+read -p "Insert project Name: " project
+project=${project:-notEmpty}
+
+package=br.eng.ivanlopes
+
+xmlfile=~/.m2/archetype-catalog.xml
+
+N=$(xmlstarlet sel -t -v 'count(//archetype)' <(sed -e '2,4d' -e '1a<archetype-catalog>' $xmlfile))
+
+cat <<EOF | sed 's/^ *//' | dmenu -i -l 52 -fn 'Droid Sans Mono-16' -nf yellow -nb black -sf black -sb white | sh
+$(for i in $(seq $N); do
+
+	p=/archetype-catalog/archetypes/archetype[$i]/groupId
+	a_group_id=$(
+		xmlstarlet sel -t -v "$p" <(sed -e '2,4d' -e '1a<archetype-catalog>' $xmlfile)
+	)
+
+	p=/archetype-catalog/archetypes/archetype[$i]/artifactId
+	a_artifact_id=$(
+		xmlstarlet sel -t -v "$p" <(sed -e '2,4d' -e '1a<archetype-catalog>' $xmlfile)
+	)
+
+	p=/archetype-catalog/archetypes/archetype[$i]/version
+	a_version=$(
+		xmlstarlet sel -t -v "$p" <(sed -e '2,4d' -e '1a<archetype-catalog>' $xmlfile)
+	)
+
+	echo mvn archetype:generate \
+		-DarchetypeArtifactId="$a_artifact_id" \
+		-DartifactId="$project" \
+		-DgroupId="$package" \
+		-DarchetypeGroupId="$a_group_id" \
+		-DarchetypeVersion="$a_version" \
+		-DarchetypeCatalog=local \
+		-DinteractiveMode=false
+done)
+EOF
